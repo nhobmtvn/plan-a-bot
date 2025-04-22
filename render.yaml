@@ -3,5 +3,5 @@ services:
     name: plan-a-bot
     env: python
     plan: free
-    buildCommand: ""
+    buildCommand: "pip install -r requirements.txt"
     startCommand: "python3 main.py"
