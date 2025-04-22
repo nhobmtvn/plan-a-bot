@@ -23,18 +23,28 @@ def send_telegram(msg):
         requests.post(url, data=data)
     except:
         pass
-
-# ====== KLINE API V1 ======
 def get_kline():
     try:
-        url = f"https://www.mexc.com/api/v1/klines?symbol={SYMBOL}&interval=1m&limit=20"
+        url = f"https://api.mexc.com/api/v3/klines?symbol={SYMBOL}&interval=1m&limit=20"
         res = requests.get(url)
         data = res.json()
+
         print("🟡 DEBUG - Kline nhận được:", data)
-        return data if isinstance(data, list) else []
+
+        if not isinstance(data, list):
+            print("🔴 Dữ liệu kline không phải list!")
+            return []
+
+        if len(data) < 20:
+            print(f"🔴 Chỉ nhận được {len(data)} nến! Cần >=20.")
+            return []
+
+        return data
+
     except Exception as e:
         print("🔴 LỖI kline:", e)
         return []
+
 
 # ====== CHỈ BÁO ======
 def calculate_indicators(data):
