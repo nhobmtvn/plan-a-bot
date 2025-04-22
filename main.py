@@ -30,21 +30,23 @@ def get_kline():
     try:
         url = f"https://api.mexc.com/api/v3/klines?symbol={SYMBOL}&interval=1m&limit=20"
         res = requests.get(url)
+        print("🟡 DEBUG - API Status Code:", res.status_code)
+        print("🟡 DEBUG - API Raw Text:", res.text[:200])  # log 200 ký tự đầu thôi
         data = res.json()
-        print("🟡 DEBUG - Kline nhận được:", data)
+        print("🟡 DEBUG - JSON:", data)
 
         if not isinstance(data, list):
             print("🔴 Dữ liệu kline không phải list!")
             return []
-
         if len(data) < 20:
-            print(f"🔴 Chỉ nhận được {len(data)} nến! Cần >= 20.")
+            print(f"🔴 Chỉ nhận được {len(data)} nến! Cần >=20.")
             return []
 
         return data
     except Exception as e:
         print("🔴 LỖI kline:", e)
         return []
+
 
 # ====== CHỈ BÁO ======
 def calculate_indicators(data):
