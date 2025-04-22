@@ -5,7 +5,7 @@ import time
 import requests
 import datetime
 from flask import Flask
-import multiprocessing
+import threading
 import os
 
 # ====== CONFIG ======
@@ -36,24 +36,13 @@ def find_top_volume_coin():
         res = requests.get(url)
         data = res.json()
         top = sorted(
-            [c for c in data if isinstance(c, dict) and c.get("quote_currency") == "usdt" and float(c.get("base_volume", 0)) > 0],
+            [c for c in data if isinstance(c, dict) and c.get("quote") == "USDT" and float(c.get("base_volume", 0)) > 0],
             key=lambda x: float(x["quote_volume"]),
             reverse=True
         )
         return top[0]["currency_pair"] if top else None
     except Exception as e:
         send_telegram(f"[Bot A] Lỗi khi quét coin: {e}")
-        return None
-
-# ====== LẤY GIÁ COIN ======
-def get_price(symbol):
-    try:
-        url = f"https://api.gateio.ws/api/v4/spot/tickers?currency_pair={symbol}"
-        res = requests.get(url, timeout=10)
-        data = res.json()
-        return float(data["last"])
-    except Exception as e:
-        send_telegram(f"[Bot A] Lỗi khi lấy giá {symbol}: {e}")
         return None
 
 # ====== GIẢ LẬP VÀO LỆNH ======
@@ -75,11 +64,13 @@ def bot_loop():
                 if not symbol:
                     time.sleep(60)
                     continue
-                
-                entry = get_price(symbol)
-                if not entry:
-                    time.sleep(60)
-                    continue
+
+                ticker_url = f"https://api.gateio.ws/api/v4/spot/tickers?currency_pair={symbol}"
+                ticker_data = requests.get(ticker_url).json()
+                if isinstance(ticker_data, list) and len(ticker_data) > 0:
+                    entry = float(ticker_data[0]['last'])
+                else:
+                    raise Exception("Không lấy được giá entry.")
 
                 tp = round(entry * 1.06, 6)
                 sl = round(entry * 0.97, 6)
@@ -87,10 +78,13 @@ def bot_loop():
                 send_telegram(f"🟢 [Bot A] MUA {symbol} tại {entry}\n🎯 TP: {tp} | 🛡️ SL: {sl}")
                 holding = True
             else:
-                price = get_price(symbol)
-                if not price:
-                    time.sleep(60)
-                    continue
+                ticker_url = f"https://api.gateio.ws/api/v4/spot/tickers?currency_pair={symbol}"
+                ticker_data = requests.get(ticker_url).json()
+                if isinstance(ticker_data, list) and len(ticker_data) > 0:
+                    price = float(ticker_data[0]['last'])
+                else:
+                    raise Exception("Không lấy được giá hiện tại.")
+
                 now = datetime.datetime.now().strftime("%H:%M:%S")
                 if price >= tp:
                     place_order(symbol, "sell", 99 / entry)
@@ -100,6 +94,7 @@ def bot_loop():
                     place_order(symbol, "sell", 99 / entry)
                     send_telegram(f"❌ [Bot A] {symbol} CẮT LỖ tại {price} | Lỗ ~{(price-entry)/entry*100:.2f}%")
                     holding = False
+
             time.sleep(60)
         except Exception as e:
             send_telegram(f"[Bot A] Lỗi: {e}")
@@ -107,5 +102,5 @@ def bot_loop():
 
 # ====== KHỞI CHẠY ======
 if __name__ == '__main__':
-    multiprocessing.Process(target=bot_loop).start()
-    multiprocessing.Process(target=lambda: app.run(host='0.0.0.0', port=8081)).start()
+    threading.Thread(target=bot_loop).start()
+    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=8081)).start()
