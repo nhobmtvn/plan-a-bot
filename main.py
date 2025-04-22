@@ -130,7 +130,7 @@ def bot_loop():
                 usdt_used = get_balance()
                 qty = round(usdt_used / entry, 2)
                 place_order("BUY", qty)
-               send_telegram(f"""🟢 [Bot A] {now} MUA FET
+                send_telegram(f"""🟢 [Bot A] {now} MUA FET
 Giá: {entry}
 🎯 TP: {tp} | 🛡️ SL: {sl}""")
                 holding = True
