@@ -25,7 +25,7 @@ def send_telegram(msg):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     data = {"chat_id": CHAT_ID, "text": msg}
     try:
-        requests.post(url, data=data, timeout=10)
+        requests.post(url, data=data)
     except:
         pass
 
@@ -33,10 +33,10 @@ def send_telegram(msg):
 def find_top_volume_coin():
     try:
         url = "https://api.gateio.ws/api/v4/spot/tickers"
-        res = requests.get(url, timeout=10)
+        res = requests.get(url)
         data = res.json()
         top = sorted(
-            [c for c in data if isinstance(c, dict) and c.get("quote") == "USDT" and float(c.get("base_volume", 0)) > 0],
+            [c for c in data if isinstance(c, dict) and c.get("quote_currency") == "usdt" and float(c.get("base_volume", 0)) > 0],
             key=lambda x: float(x["quote_volume"]),
             reverse=True
         )
@@ -45,18 +45,21 @@ def find_top_volume_coin():
         send_telegram(f"[Bot A] Lỗi khi quét coin: {e}")
         return None
 
-# ====== GIÁ HIỆN TẠI COIN ======
+# ====== LẤY GIÁ COIN ======
 def get_price(symbol):
     try:
         url = f"https://api.gateio.ws/api/v4/spot/tickers?currency_pair={symbol}"
         res = requests.get(url, timeout=10)
-        return float(res.json()[0]['last'])
-    except:
+        data = res.json()
+        return float(data["last"])
+    except Exception as e:
+        send_telegram(f"[Bot A] Lỗi khi lấy giá {symbol}: {e}")
         return None
 
 # ====== GIẢ LẬP VÀO LỆNH ======
 def place_order(symbol, side, amount):
-    print(f"Đặt lệnh {side} {amount} {symbol}")  # giả lập in ra
+    # Đây là mock để test logic, chưa gọi thật Gate API
+    print(f"Đặt lệnh {side} {amount} {symbol}")
     return True
 
 # ====== CHẠY BOT ======
@@ -72,7 +75,7 @@ def bot_loop():
                 if not symbol:
                     time.sleep(60)
                     continue
-
+                
                 entry = get_price(symbol)
                 if not entry:
                     time.sleep(60)
@@ -80,8 +83,7 @@ def bot_loop():
 
                 tp = round(entry * 1.06, 6)
                 sl = round(entry * 0.97, 6)
-                qty = round(99 / entry, 4)
-                place_order(symbol, "buy", qty)
+                place_order(symbol, "buy", 99 / entry)
                 send_telegram(f"🟢 [Bot A] MUA {symbol} tại {entry}\n🎯 TP: {tp} | 🛡️ SL: {sl}")
                 holding = True
             else:
@@ -89,17 +91,15 @@ def bot_loop():
                 if not price:
                     time.sleep(60)
                     continue
-
                 now = datetime.datetime.now().strftime("%H:%M:%S")
                 if price >= tp:
-                    place_order(symbol, "sell", qty)
+                    place_order(symbol, "sell", 99 / entry)
                     send_telegram(f"✅ [Bot A] {symbol} CHỐT LỜI tại {price} | Lãi ~{(price-entry)/entry*100:.2f}%")
                     holding = False
                 elif price <= sl:
-                    place_order(symbol, "sell", qty)
+                    place_order(symbol, "sell", 99 / entry)
                     send_telegram(f"❌ [Bot A] {symbol} CẮT LỖ tại {price} | Lỗ ~{(price-entry)/entry*100:.2f}%")
                     holding = False
-
             time.sleep(60)
         except Exception as e:
             send_telegram(f"[Bot A] Lỗi: {e}")
