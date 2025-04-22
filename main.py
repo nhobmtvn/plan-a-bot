@@ -28,7 +28,7 @@ def send_telegram(msg):
 # ====== KLINE API v3 ======
 def get_kline():
     try:
-        url = f"https://api.mexc.com/api/v3/klines?symbol={SYMBOL}&interval=1m&limit=20"
+        url = f"https://www.mexc.com/api/v1/klines?symbol={SYMBOL}&interval=1m&limit=20"
         res = requests.get(url)
         print("🟡 DEBUG - API Status Code:", res.status_code, flush=True)
         print("🟡 DEBUG - API Raw Text:", res.text[:200], flush=True)
@@ -42,6 +42,12 @@ def get_kline():
         if len(data) < 20:
             print(f"🔴 Chỉ nhận được {len(data)} nến! Cần >=20.", flush=True)
             return []
+
+        return data
+    except Exception as e:
+        print("🔴 LỖI kline:", e, flush=True)
+        return []
+
 
         return data
     except Exception as e:
