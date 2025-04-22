@@ -1,5 +1,4 @@
 # Bot A – Plan A Pro phiên bản Telegram + Spot MEXC (FET – 25 USDT)
-# Tự động phân tích – đặt lệnh – chốt lời – báo Telegram – dùng API MEXC v1 (ổn định hơn)
 
 import time
 import requests
@@ -39,26 +38,21 @@ def get_kline():
 
 # ====== CHỈ BÁO ======
 def calculate_indicators(data):
-    closes = [float(i[4]) for i in data]  # giá đóng cửa
+    closes = [float(i[4]) for i in data]
     volumes = [float(i[5]) for i in data]
-
-    gains = []
-    losses = []
+    gains, losses = [], []
     for i in range(1, 15):
         delta = closes[i] - closes[i - 1]
         gains.append(max(delta, 0))
         losses.append(max(-delta, 0))
-
     avg_gain = sum(gains) / 14
     avg_loss = sum(losses) / 14
     rs = avg_gain / avg_loss if avg_loss != 0 else 0.01
     rsi = 100 - (100 / (1 + rs))
-
     ma5 = sum(closes[-5:]) / 5
     ma20 = sum(closes[-20:]) / 20
     avg_vol = sum(volumes[-4:-1]) / 3
     vol_spike = volumes[-1] > avg_vol * 1.3
-
     return closes[-1], rsi, ma5, ma20, vol_spike
 
 # ====== ĐẶT LỆNH MEXC SPOT ======
@@ -112,7 +106,6 @@ def bot_loop():
     entry = tp = sl = 0
     qty = 0
     usdt_used = 0
-
     while True:
         try:
             kline = get_kline()
@@ -120,10 +113,8 @@ def bot_loop():
                 send_telegram("⚠️ [Bot A] Không đủ dữ liệu kline từ API v1. Đợi thêm...")
                 time.sleep(60)
                 continue
-
             price, rsi, ma5, ma20, vol_spike = calculate_indicators(kline)
             now = datetime.datetime.now().strftime("%H:%M:%S")
-
             if not holding and rsi < 38 and ma5 > ma20 and vol_spike:
                 entry = price
                 tp, sl = calculate_tp_sl(entry)
@@ -143,7 +134,6 @@ Giá: {entry}
                     place_order("SELL", qty)
                     send_telegram(f"❌ [Bot A] {now} CẮT LỖ tại {price} | Lỗ ~{(price-entry)/entry*100:.2f}%")
                     holding = False
-
             time.sleep(60)
         except Exception as e:
             send_telegram(f"[Bot A] Lỗi: {e}")
