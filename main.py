@@ -7,14 +7,14 @@ import hmac
 import hashlib
 import datetime
 from flask import Flask
-import threading
+import os
 
 # ====== CONFIG ======
-API_KEY = "mx0vgl72I1Bi63sS6h"
-SECRET_KEY = "a60ced2b7abc4f7783cbabf2090e86f8"
-TELEGRAM_TOKEN = "7290587071:AAGdDyPtKKs_v2X48zaVM9-OjobhcztNnsk"
-CHAT_ID = "755523445"
-SYMBOL = "FETUSDT"
+API_KEY = os.getenv("API_KEY", "mx0vgl72I1Bi63sS6h")
+SECRET_KEY = os.getenv("SECRET_KEY", "a60ced2b7abc4f7783cbabf2090e86f8")
+TELEGRAM_TOKEN = os.getenv("7290587071:AAGdDyPtKKs_v2X48zaVM9-OjobhcztNnsk")
+CHAT_ID = os.getenv("CHAT_ID", "755523445")
+SYMBOL = "FET_USDT"
 
 # ====== TELEGRAM ======
 def send_telegram(msg):
@@ -30,25 +30,25 @@ def get_kline():
     try:
         url = f"https://api.mexc.com/api/v3/klines?symbol={SYMBOL}&interval=1m&limit=20"
         res = requests.get(url)
-        print("🟡 DEBUG - API Status Code:", res.status_code)
-        print("🟡 DEBUG - API Raw Text:", res.text[:200])  # log 200 ký tự đầu thôi
+        print("🟡 DEBUG - API Status Code:", res.status_code, flush=True)
+        print("🟡 DEBUG - API Raw Text:", res.text[:200], flush=True)
         data = res.json()
-        print("🟡 DEBUG - JSON:", data)
+        print("🟡 DEBUG - JSON:", data, flush=True)
 
         if not isinstance(data, list):
-            print("🔴 Dữ liệu kline không phải list!")
+            print("🔴 Dữ liệu kline không phải list!", flush=True)
             return []
+
         if len(data) < 20:
-            print(f"🔴 Chỉ nhận được {len(data)} nến! Cần >=20.")
+            print(f"🔴 Chỉ nhận được {len(data)} nến! Cần >=20.", flush=True)
             return []
 
         return data
     except Exception as e:
-        print("🔴 LỖI kline:", e)
+        print("🔴 LỖI kline:", e, flush=True)
         return []
 
-
-# ====== CHỈ BÁO ======
+# ====== CHỊ BÁO ======
 def calculate_indicators(data):
     closes = [float(i[4]) for i in data]
     volumes = [float(i[5]) for i in data]
@@ -72,7 +72,7 @@ def calculate_indicators(data):
 
     return closes[-1], rsi, ma5, ma20, vol_spike
 
-# ====== ĐẶT LỆNH MEXC SPOT ======
+# ====== ĐẠT LỆNH MEXC SPOT ======
 def place_order(side, quantity):
     try:
         url = "https://api.mexc.com/api/v3/order"
@@ -117,57 +117,63 @@ def calculate_tp_sl(entry):
     sl = round(entry * 0.96, 6)
     return tp, sl
 
-# ====== CHẠY BOT ======
-def bot_loop():
-    holding = False
-    entry = tp = sl = 0
-    qty = 0
-    usdt_used = 0
+# ====== FLASK KEEPALIVE ======
+app = Flask(__name__)
 
-    while True:
-        try:
-            kline = get_kline()
-            if not kline:
-                send_telegram("⚠️ [Bot A] Không đủ dữ liệu kline từ API v3. Đợi thêm...")
-                time.sleep(60)
-                continue
-
-            price, rsi, ma5, ma20, vol_spike = calculate_indicators(kline)
-            now = datetime.datetime.now().strftime("%H:%M:%S")
-
-            if not holding and rsi < 38 and ma5 > ma20 and vol_spike:
-                entry = price
-                tp, sl = calculate_tp_sl(entry)
-                usdt_used = get_balance()
-                qty = round(usdt_used / entry, 2)
-                place_order("BUY", qty)
-                send_telegram(f"""🟢 [Bot A] {now} MUA FET
-Giá: {entry}
-🎯 TP: {tp} | 🛡️ SL: {sl}""")
-                holding = True
-
-            elif holding:
-                if price >= tp:
-                    place_order("SELL", qty)
-                    send_telegram(f"✅ [Bot A] {now} CHỐT LỜI tại {price} | Lãi ~{(price-entry)/entry*100:.2f}%")
-                    holding = False
-                elif price <= sl:
-                    place_order("SELL", qty)
-                    send_telegram(f"❌ [Bot A] {now} CẮT LỖ tại {price} | Lỗ ~{(price-entry)/entry*100:.2f}%")
-                    holding = False
-
-            time.sleep(60)
-        except Exception as e:
-            send_telegram(f"[Bot A] Lỗi: {e}")
-            time.sleep(60)
-
-# ====== KEEP ALIVE ======
-app = Flask('')
 @app.route('/')
 def home():
     return "Bot A – Plan A Pro đang chạy."
 
-# ====== START ======
-if __name__ == "__main__":
-    threading.Thread(target=bot_loop).start()
-    app.run(host='0.0.0.0', port=8081)
+# ====== CHẠY BOT ======
+if __name__ == '__main__':
+    from waitress import serve
+    import multiprocessing
+
+    def bot_loop():
+        holding = False
+        entry = tp = sl = 0
+        qty = 0
+        usdt_used = 0
+
+        while True:
+            try:
+                kline = get_kline()
+                if not kline or len(kline) < 20:
+                    send_telegram("⚠️ [Bot A] Không đủ dữ liệu kline từ API v3. Đợi thêm...")
+                    time.sleep(60)
+                    continue
+
+                price, rsi, ma5, ma20, vol_spike = calculate_indicators(kline)
+                now = datetime.datetime.now().strftime("%H:%M:%S")
+
+                if not holding and rsi < 38 and ma5 > ma20 and vol_spike:
+                    entry = price
+                    tp, sl = calculate_tp_sl(entry)
+                    usdt_used = get_balance()
+                    qty = round(usdt_used / entry, 2)
+                    place_order("BUY", qty)
+                    send_telegram(f"""🟢 [Bot A] {now} MUA FET\nGiá: {entry}\n🎯 TP: {tp} | 🛡️ SL: {sl}""")
+                    holding = True
+                elif holding:
+                    if price >= tp:
+                        place_order("SELL", qty)
+                        send_telegram(f"✅ [Bot A] {now} CHỐT LỒI tại {price} | Lãi ~{(price-entry)/entry*100:.2f}%")
+                        holding = False
+                    elif price <= sl:
+                        place_order("SELL", qty)
+                        send_telegram(f"❌ [Bot A] {now} CắT LỖ tại {price} | Lỗ ~{(price-entry)/entry*100:.2f}%")
+                        holding = False
+
+                time.sleep(60)
+            except Exception as e:
+                send_telegram(f"[Bot A] Lỗi: {e}")
+                time.sleep(60)
+
+    p1 = multiprocessing.Process(target=serve, args=(app,), kwargs={"host": "0.0.0.0", "port": 8081})
+    p2 = multiprocessing.Process(target=bot_loop)
+
+    p1.start()
+    p2.start()
+
+    p1.join()
+    p2.join()
