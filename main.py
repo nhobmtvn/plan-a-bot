@@ -54,7 +54,7 @@ def get_top_coin():
     try:
         url = f"{BASE_URL}/spot/tickers"
         res = requests.get(url).json()
-        filtered = [i for i in res if i['quote'] == 'USDT' and float(i['base_volume']) > 1000000]
+        filtered = [i for i in res if i['currency_pair'].endswith('_USDT') and float(i['base_volume']) > 1000000]
         sorted_data = sorted(filtered, key=lambda x: float(x['base_volume']), reverse=True)
         return sorted_data[0]['currency_pair'] if sorted_data else None
     except Exception as e:
