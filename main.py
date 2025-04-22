@@ -1,13 +1,13 @@
 # Bot A – Plan A Pro phiên bản Telegram + Spot MEXC (FET – 25 USDT)
-# Tự động phân tích – đặt lệnh – chốt lời – báo Telegram – dùng API MEXC v3 (ổn định hơn)
+# Tự động phân tích – đặt lệnh – chốt lời – báo Telegram – dùng API MEXC v3
 
 import time
 import requests
 import hmac
 import hashlib
 import datetime
-import threading
 from flask import Flask
+import threading
 
 # ====== CONFIG ======
 API_KEY = "mx0vgl72I1Bi63sS6h"
@@ -25,7 +25,7 @@ def send_telegram(msg):
     except:
         pass
 
-# ====== KLINE API V3 ======
+# ====== KLINE API v3 ======
 def get_kline():
     try:
         url = f"https://api.mexc.com/api/v3/klines?symbol={SYMBOL}&interval=1m&limit=20"
@@ -38,12 +38,12 @@ def get_kline():
             return []
 
         if len(data) < 20:
-            print(f"🔴 Chỉ nhận được {len(data)} nến! Cần >=20.")
+            print(f"🔴 Chỉ nhận được {len(data)} nến! Cần >= 20.")
             return []
 
         return data
     except Exception as e:
-        print("🔴 Lỗi kline:", e)
+        print("🔴 LỖI kline:", e)
         return []
 
 # ====== CHỈ BÁO ======
@@ -125,7 +125,7 @@ def bot_loop():
     while True:
         try:
             kline = get_kline()
-            if not kline or len(kline) < 20:
+            if not kline:
                 send_telegram("⚠️ [Bot A] Không đủ dữ liệu kline từ API v3. Đợi thêm...")
                 time.sleep(60)
                 continue
@@ -139,8 +139,11 @@ def bot_loop():
                 usdt_used = get_balance()
                 qty = round(usdt_used / entry, 2)
                 place_order("BUY", qty)
-                send_telegram(f"""🟢 [Bot A] {now} MUA FET\nGiá: {entry}\n🎯 TP: {tp} | 🛡️ SL: {sl}""")
+                send_telegram(f"""🟢 [Bot A] {now} MUA FET
+Giá: {entry}
+🎯 TP: {tp} | 🛡️ SL: {sl}""")
                 holding = True
+
             elif holding:
                 if price >= tp:
                     place_order("SELL", qty)
@@ -162,13 +165,7 @@ app = Flask('')
 def home():
     return "Bot A – Plan A Pro đang chạy."
 
-def run():
-    app.run(host='0.0.0.0', port=8081)
-
-def keep_alive():
-    t = threading.Thread(target=run)
-    t.start()
-
 # ====== START ======
-keep_alive()
-bot_loop()
+if __name__ == "__main__":
+    threading.Thread(target=bot_loop).start()
+    app.run(host='0.0.0.0', port=8081)
