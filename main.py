@@ -14,7 +14,7 @@ API_KEY = "mx0vgl72I1Bi63sS6h"
 SECRET_KEY = "a60ced2b7abc4f7783cbabf2090e86f8"
 TELEGRAM_TOKEN = "7290587071:AAGdDyPtKKs_v2X48zaVM9-OjobhcztNnsk"
 CHAT_ID = "755523445"
-SYMBOL = "FET_USDT"
+SYMBOL = "FETUSDT"
 
 # ====== TELEGRAM ======
 def send_telegram(msg):
