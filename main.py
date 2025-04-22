@@ -130,10 +130,10 @@ def bot_loop():
                 usdt_used = get_balance()
                 qty = round(usdt_used / entry, 2)
                 place_order("BUY", qty)
-                send_telegram(f"🟢 [Bot A] {now} MUA FET
-Giá: {entry}\n🎯 TP: {tp} | 🛡️ SL: {sl}")
+               send_telegram(f"""🟢 [Bot A] {now} MUA FET
+Giá: {entry}
+🎯 TP: {tp} | 🛡️ SL: {sl}""")
                 holding = True
-
             elif holding:
                 if price >= tp:
                     place_order("SELL", qty)
